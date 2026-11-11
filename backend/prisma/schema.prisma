@@ -1,0 +1,766 @@
+// AquaFlow Master Prisma Schema
+// PostgreSQL with Multi-Tenancy & Normalized Enterprise Domain Models
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------------------------------------------------------
+// ENUMS
+// -----------------------------------------------------------------------------
+
+enum UserRole {
+  SUPER_ADMIN
+  BUSINESS_OWNER
+  MANAGER
+  ACCOUNTANT
+  DELIVERY_STAFF
+  CUSTOMER
+}
+
+enum BusinessStatus {
+  PENDING_APPROVAL
+  ACTIVE
+  SUSPENDED
+}
+
+enum MembershipStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+}
+
+enum CustomerType {
+  RESIDENTIAL
+  COMMERCIAL
+  INSTITUTIONAL
+}
+
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+  BLACKLISTED
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  ASSIGNED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  FAILED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PARTIALLY_PAID
+  PAID
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH_ON_DELIVERY
+  ONLINE_GATEWAY
+  BANK_TRANSFER
+  EASYPAISA
+  JAZZCASH
+}
+
+enum PaymentRecordStatus {
+  PENDING_VERIFICATION
+  COLLECTED_BY_DRIVER
+  RECONCILED
+  FAILED
+  REFUNDED
+}
+
+enum BottleTransactionType {
+  DELIVERY_ISSUANCE
+  DELIVERY_RETURN
+  DAMAGED_RETURN
+  DEPOSIT_PAID
+  DEPOSIT_REFUNDED
+  AUDIT_CORRECTION
+}
+
+enum StockTransactionType {
+  PRODUCTION_FILL
+  DELIVERY_DISPATCH
+  DELIVERY_RETURN
+  BRANCH_TRANSFER_OUT
+  BRANCH_TRANSFER_IN
+  SCRAP_DAMAGED
+  MANUAL_ADJUSTMENT
+}
+
+enum BottleState {
+  FULL
+  EMPTY
+  DAMAGED
+}
+
+enum DeliveryStatus {
+  ASSIGNED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  FAILED
+  CANCELLED
+}
+
+enum SubscriptionFrequency {
+  DAILY
+  ALTERNATE_DAYS
+  WEEKLY
+  BIWEEKLY
+  MONTHLY_QUOTA
+  CUSTOM_DAYS
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAUSED
+  CANCELLED
+}
+
+enum ExpenseCategory {
+  FUEL_AND_MAINTENANCE
+  RAW_WATER_PURCHASE
+  ELECTRICITY_UTILITIES
+  STAFF_SALARY
+  PLANT_CHEMICALS_FILTERS
+  OFFICE_SUPPLIES
+  OTHER
+}
+
+enum SaaSPlanStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  EXPIRED
+}
+
+enum InvoiceStatus {
+  ISSUED
+  PAID
+  VOIDED
+  OVERDUE
+}
+
+enum NotificationType {
+  ORDER_CREATED
+  ORDER_CONFIRMED
+  DELIVERY_DISPATCHED
+  DELIVERY_COMPLETED
+  BOTTLE_DEPOSIT_REFUNDED
+  PAYMENT_RECEIVED
+  LOW_STOCK_ALERT
+  SUBSCRIPTION_RENEWAL
+}
+
+// -----------------------------------------------------------------------------
+// CORE IDENTITY & MULTI-TENANCY
+// -----------------------------------------------------------------------------
+
+model User {
+  id              String         @id @default(uuid())
+  email           String         @unique
+  phone           String         @unique
+  passwordHash    String
+  firstName       String
+  lastName        String
+  avatarUrl       String?
+  isSuperAdmin    Boolean        @default(false)
+  isActive        Boolean        @default(true)
+  isEmailVerified Boolean        @default(false)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  refreshTokens   RefreshToken[]
+  memberships     Membership[]
+  customers       Customer[]
+  deliveries      Delivery[]     @relation("DriverDeliveries")
+  performedBottleEntries BottleLedgerEntry[] @relation("PerformedBy")
+  recordedExpenses Expense[]     @relation("RecordedBy")
+  reconciledPayments Payment[]   @relation("ReconciledBy")
+  notifications   Notification[]
+  auditLogs       AuditLog[]
+
+  @@index([email])
+  @@index([phone])
+}
+
+model RefreshToken {
+  id          String    @id @default(uuid())
+  userId      String
+  tokenHash   String    @unique
+  family      String
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  userAgent   String?
+  ipAddress   String?
+  createdAt   DateTime  @default(now())
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([family])
+}
+
+model Business {
+  id                  String         @id @default(uuid())
+  name                String
+  slug                String         @unique
+  logoUrl             String?
+  email               String
+  phone               String
+  currency            String         @default("PKR")
+  address             String
+  city                String
+  deliveryFeeStandard Decimal        @default(0.00) @db.Decimal(12, 2)
+  bottleDepositRate19L Decimal       @default(1500.00) @db.Decimal(12, 2)
+  bottleDepositRate12L Decimal       @default(1200.00) @db.Decimal(12, 2)
+  status              BusinessStatus @default(PENDING_APPROVAL)
+  workingHours        Json?
+  settings            Json?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  subscription        BusinessSubscription?
+  branches            Branch[]
+  memberships         Membership[]
+  customers           Customer[]
+  categories          Category[]
+  products            Product[]
+  orders              Order[]
+  deliveries          Delivery[]
+  bottleLedgerEntries BottleLedgerEntry[]
+  inventories         Inventory[]
+  stockTransactions   StockTransaction[]
+  subscriptions       Subscription[]
+  payments            Payment[]
+  expenses            Expense[]
+  invoices            Invoice[]
+  auditLogs           AuditLog[]
+  rolePermissions     RolePermission[]
+
+  @@index([status])
+}
+
+model SaaSPlan {
+  id            String         @id @default(uuid())
+  name          String
+  slug          String         @unique
+  description   String
+  monthlyPrice  Decimal        @db.Decimal(12, 2)
+  yearlyPrice   Decimal        @db.Decimal(12, 2)
+  maxUsers      Int
+  maxCustomers  Int
+  maxBranches   Int
+  features      Json
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  subscriptions BusinessSubscription[]
+}
+
+model BusinessSubscription {
+  id            String         @id @default(uuid())
+  businessId    String         @unique
+  planId        String
+  status        SaaSPlanStatus @default(TRIALING)
+  startDate     DateTime       @default(now())
+  endDate       DateTime
+  trialEndsAt   DateTime?
+  cancelledAt   DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  business      Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  plan          SaaSPlan       @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  @@index([businessId])
+  @@index([status])
+}
+
+model Branch {
+  id          String     @id @default(uuid())
+  businessId  String
+  name        String
+  code        String
+  address     String
+  phone       String
+  latitude    Float?
+  longitude   Float?
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  business    Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  memberships Membership[]
+  orders      Order[]
+  deliveries  Delivery[]
+  inventories Inventory[]
+  stockTransactions StockTransaction[]
+  expenses    Expense[]
+
+  @@unique([businessId, code])
+  @@index([businessId])
+}
+
+model Membership {
+  id          String           @id @default(uuid())
+  userId      String
+  businessId  String
+  branchId    String?
+  role        UserRole         @default(CUSTOMER)
+  status      MembershipStatus @default(ACTIVE)
+  invitedById String?
+  joinedAt    DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  business    Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  branch      Branch?          @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, businessId])
+  @@index([businessId, role])
+}
+
+model RolePermission {
+  id          String    @id @default(uuid())
+  businessId  String
+  role        UserRole
+  permission  String
+  createdAt   DateTime  @default(now())
+
+  business    Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, role, permission])
+  @@index([businessId, role])
+}
+
+// -----------------------------------------------------------------------------
+// CUSTOMER & PRODUCT CATALOG
+// -----------------------------------------------------------------------------
+
+model Customer {
+  id                 String         @id @default(uuid())
+  businessId         String
+  userId             String?
+  customerType       CustomerType   @default(RESIDENTIAL)
+  companyName        String?
+  displayName        String
+  phone              String
+  email              String?
+  bottleBalance      Int            @default(0)
+  depositBalance     Decimal        @default(0.00) @db.Decimal(12, 2)
+  outstandingBalance Decimal        @default(0.00) @db.Decimal(12, 2)
+  status             CustomerStatus @default(ACTIVE)
+  internalNotes      String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  business           Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  user               User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  addresses          Address[]
+  orders             Order[]
+  bottleLedgerEntries BottleLedgerEntry[]
+  subscriptions      Subscription[]
+  payments           Payment[]
+
+  @@unique([businessId, phone])
+  @@index([businessId, status])
+}
+
+model Address {
+  id                   String         @id @default(uuid())
+  customerId           String
+  label                String
+  street               String
+  building             String?
+  floor                String?
+  area                 String
+  city                 String
+  latitude             Float?
+  longitude            Float?
+  deliveryInstructions String?
+  isDefault            Boolean        @default(false)
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  customer             Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  orders               Order[]
+  subscriptions        Subscription[]
+
+  @@index([customerId])
+}
+
+model Category {
+  id           String    @id @default(uuid())
+  businessId   String
+  name         String
+  slug         String
+  description  String?
+  displayOrder Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  business     Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  products     Product[]
+
+  @@unique([businessId, slug])
+  @@index([businessId])
+}
+
+model Product {
+  id                 String             @id @default(uuid())
+  businessId         String
+  categoryId         String
+  name               String
+  sku                String
+  sizeLiters         Decimal            @default(19.00) @db.Decimal(5, 2)
+  isReturnableBottle Boolean            @default(true)
+  sellingPrice       Decimal            @db.Decimal(12, 2)
+  depositPrice       Decimal            @default(0.00) @db.Decimal(12, 2)
+  costPrice          Decimal            @default(0.00) @db.Decimal(12, 2)
+  imageUrl           String?
+  description        String?
+  isActive           Boolean            @default(true)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  business           Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  category           Category           @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  orderItems         OrderItem[]
+  bottleLedgerEntries BottleLedgerEntry[]
+  inventories        Inventory[]
+  stockTransactions  StockTransaction[]
+  subscriptionItems  SubscriptionItem[]
+
+  @@unique([businessId, sku])
+  @@index([businessId, isActive])
+}
+
+// -----------------------------------------------------------------------------
+// ORDERS, INVOICES & BOTTLE LEDGER
+// -----------------------------------------------------------------------------
+
+model Order {
+  id                 String         @id @default(uuid())
+  businessId         String
+  branchId           String
+  customerId         String
+  addressId          String
+  orderNumber        String
+  status             OrderStatus    @default(PENDING)
+  subtotal           Decimal        @db.Decimal(12, 2)
+  depositTotal       Decimal        @default(0.00) @db.Decimal(12, 2)
+  deliveryFee        Decimal        @default(0.00) @db.Decimal(12, 2)
+  discountAmount     Decimal        @default(0.00) @db.Decimal(12, 2)
+  totalAmount        Decimal        @db.Decimal(12, 2)
+  paymentStatus      PaymentStatus  @default(PENDING)
+  paymentMethod      PaymentMethod  @default(CASH_ON_DELIVERY)
+  scheduledDate      DateTime
+  preferredTimeSlot  String?
+  customerNotes      String?
+  cancelledReason    String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  business           Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  branch             Branch         @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  customer           Customer       @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  address            Address        @relation(fields: [addressId], references: [id], onDelete: Restrict)
+  orderItems         OrderItem[]
+  delivery           Delivery?
+  invoice            Invoice?
+  payments           Payment[]
+  bottleLedgerEntries BottleLedgerEntry[]
+
+  @@unique([businessId, orderNumber])
+  @@index([businessId, status])
+  @@index([businessId, scheduledDate])
+  @@index([businessId, customerId])
+}
+
+model OrderItem {
+  id                 String    @id @default(uuid())
+  orderId            String
+  productId          String
+  quantity           Int
+  unitPrice          Decimal   @db.Decimal(12, 2)
+  unitDeposit        Decimal   @default(0.00) @db.Decimal(12, 2)
+  totalPrice         Decimal   @db.Decimal(12, 2)
+  isReturnExpected   Boolean   @default(true)
+  createdAt          DateTime  @default(now())
+
+  order              Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product            Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+}
+
+model Invoice {
+  id            String        @id @default(uuid())
+  businessId    String
+  orderId       String        @unique
+  invoiceNumber String
+  subtotal      Decimal       @db.Decimal(12, 2)
+  depositAmount Decimal       @default(0.00) @db.Decimal(12, 2)
+  deliveryFee   Decimal       @default(0.00) @db.Decimal(12, 2)
+  totalAmount   Decimal       @db.Decimal(12, 2)
+  paidAmount    Decimal       @default(0.00) @db.Decimal(12, 2)
+  status        InvoiceStatus @default(ISSUED)
+  issuedAt      DateTime      @default(now())
+  dueDate       DateTime
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  business      Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  order         Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, invoiceNumber])
+  @@index([businessId, status])
+}
+
+model BottleLedgerEntry {
+  id                    String                @id @default(uuid())
+  businessId            String
+  customerId            String
+  orderId               String?
+  deliveryId            String?
+  productId             String
+  transactionType       BottleTransactionType
+  fullDelivered         Int                   @default(0)
+  emptyReturned         Int                   @default(0)
+  damagedCount          Int                   @default(0)
+  depositAmount         Decimal               @default(0.00) @db.Decimal(12, 2)
+  refundAmount          Decimal               @default(0.00) @db.Decimal(12, 2)
+  runningBottleBalance  Int
+  runningDepositBalance Decimal               @db.Decimal(12, 2)
+  performedById         String
+  notes                 String?
+  createdAt             DateTime              @default(now())
+
+  business              Business              @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  customer              Customer              @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  order                 Order?                @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  delivery              Delivery?             @relation(fields: [deliveryId], references: [id], onDelete: SetNull)
+  product               Product               @relation(fields: [productId], references: [id], onDelete: Restrict)
+  performedBy           User                  @relation("PerformedBy", fields: [performedById], references: [id], onDelete: Restrict)
+
+  @@index([businessId, customerId])
+  @@index([businessId, createdAt])
+}
+
+// -----------------------------------------------------------------------------
+// INVENTORY & DELIVERIES
+// -----------------------------------------------------------------------------
+
+model Inventory {
+  id                 String    @id @default(uuid())
+  businessId         String
+  branchId           String
+  productId          String
+  fullQuantity       Int       @default(0)
+  emptyQuantity      Int       @default(0)
+  damagedQuantity    Int       @default(0)
+  lowStockThreshold  Int       @default(20)
+  updatedAt          DateTime  @updatedAt
+
+  business           Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  branch             Branch    @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  product            Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@unique([branchId, productId])
+  @@index([businessId])
+}
+
+model StockTransaction {
+  id                String               @id @default(uuid())
+  businessId        String
+  branchId          String
+  productId         String
+  transactionType   StockTransactionType
+  bottleState       BottleState          @default(FULL)
+  quantity          Int
+  resultingQuantity Int
+  reason            String?
+  performedById     String
+  createdAt         DateTime             @default(now())
+
+  business          Business             @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  branch            Branch               @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  product           Product              @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([businessId, branchId])
+  @@index([businessId, createdAt])
+}
+
+model Delivery {
+  id                    String         @id @default(uuid())
+  businessId            String
+  branchId              String
+  orderId               String         @unique
+  driverId              String
+  scheduledDate         DateTime
+  stopOrder             Int            @default(1)
+  status                DeliveryStatus @default(ASSIGNED)
+  otpCode               String?
+  otpVerified           Boolean        @default(false)
+  proofPhotoUrl         String?
+  cashCollected         Decimal        @default(0.00) @db.Decimal(12, 2)
+  emptyBottlesCollected Int            @default(0)
+  customerNotes         String?
+  failureReason         String?
+  dispatchedAt          DateTime?
+  deliveredAt           DateTime?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  business              Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  branch                Branch         @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  order                 Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  driver                User           @relation("DriverDeliveries", fields: [driverId], references: [id], onDelete: Restrict)
+  bottleLedgerEntries   BottleLedgerEntry[]
+
+  @@index([businessId, driverId, scheduledDate])
+  @@index([businessId, status])
+}
+
+// -----------------------------------------------------------------------------
+// RECURRING SUBSCRIPTIONS
+// -----------------------------------------------------------------------------
+
+model Subscription {
+  id                String                @id @default(uuid())
+  businessId        String
+  customerId        String
+  addressId         String
+  frequency         SubscriptionFrequency @default(WEEKLY)
+  customDays        Int[]                 @default([])
+  status            SubscriptionStatus    @default(ACTIVE)
+  startDate         DateTime              @default(now())
+  nextDeliveryDate  DateTime
+  preferredTimeSlot String?
+  paymentPreference PaymentMethod         @default(CASH_ON_DELIVERY)
+  pausedUntil       DateTime?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  business          Business              @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  customer          Customer              @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  address           Address               @relation(fields: [addressId], references: [id], onDelete: Restrict)
+  subscriptionItems SubscriptionItem[]
+
+  @@index([businessId, status])
+  @@index([businessId, nextDeliveryDate])
+}
+
+model SubscriptionItem {
+  id             String       @id @default(uuid())
+  subscriptionId String
+  productId      String
+  quantity       Int          @default(1)
+
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  product        Product      @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([subscriptionId])
+}
+
+// -----------------------------------------------------------------------------
+// ACCOUNTING, PAYMENTS & EXPENSES
+// -----------------------------------------------------------------------------
+
+model Payment {
+  id                  String              @id @default(uuid())
+  businessId          String
+  orderId             String?
+  customerId          String
+  amount              Decimal             @db.Decimal(12, 2)
+  paymentMethod       PaymentMethod       @default(CASH_ON_DELIVERY)
+  status              PaymentRecordStatus @default(PENDING_VERIFICATION)
+  referenceNumber     String?
+  collectedByDriverId String?
+  reconciledById      String?
+  reconciledAt        DateTime?
+  createdAt           DateTime            @default(now())
+
+  business            Business            @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  order               Order?              @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  customer            Customer            @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  reconciledBy        User?               @relation("ReconciledBy", fields: [reconciledById], references: [id], onDelete: SetNull)
+
+  @@index([businessId, status])
+  @@index([businessId, createdAt])
+}
+
+model Expense {
+  id           String          @id @default(uuid())
+  businessId   String
+  branchId     String
+  category     ExpenseCategory
+  amount       Decimal         @db.Decimal(12, 2)
+  description  String
+  receiptUrl   String?
+  recordedById String
+  expenseDate  DateTime        @default(now())
+  createdAt    DateTime        @default(now())
+
+  business     Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  branch       Branch          @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  recordedBy   User            @relation("RecordedBy", fields: [recordedById], references: [id], onDelete: Restrict)
+
+  @@index([businessId, expenseDate])
+  @@index([businessId, category])
+}
+
+// -----------------------------------------------------------------------------
+// NOTIFICATIONS & AUDIT LOGS
+// -----------------------------------------------------------------------------
+
+model Notification {
+  id         String           @id @default(uuid())
+  userId     String
+  businessId String?
+  type       NotificationType
+  title      String
+  message    String
+  link       String?
+  isRead     Boolean          @default(false)
+  createdAt  DateTime         @default(now())
+
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  businessId String?
+  userId     String?
+  action     String
+  entityType String
+  entityId   String
+  metadata   Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  business   Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  user       User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([businessId, createdAt])
+}
+
