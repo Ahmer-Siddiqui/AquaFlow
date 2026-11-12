@@ -6,6 +6,111 @@ This document tracks all completed features, architectural implementations, data
 
 ## 📜 Log Entries
 
+### [2026-11-12] — Step 7 Implemented: TypeORM Migration Scripts & Migration Engine
+- **Module:** Database Migrations (`src/migrations/`, `src/scripts/migrate.ts`)
+- **Action Type:** `[DATABASE_MIGRATION]`, `[TYPEORM]`, `[REPRODUCIBILITY]`
+- **Description:**
+  - Implemented 2 formal TypeORM `MigrationInterface` migrations:
+    - `src/migrations/1731420000000-CreateInitialSecurityAndConfigTables.ts`: DDL migration that establishes schemas (`config`, `settings`, `security`), tables with `BaseEntity` septet audit columns, unique constraints, and foreign key relations with `ON DELETE CASCADE`.
+    - `src/migrations/1731420001000-SeedInitialSecurityAndConfigData.ts`: DML migration that seeds baseline lookup data (`user_types`, `employment_types`, `erp_modules`, `roles`, `permissions`, `role_permissions`) with `ON CONFLICT DO NOTHING` for full idempotency.
+  - Implemented runner scripts:
+    - `src/scripts/migrate.ts`: Executable runner for running pending migrations.
+    - `src/scripts/revert-migration.ts`: Rollback runner.
+  - Configured `AppDataSource` with registered migration classes.
+  - Added npm commands in `package.json`:
+    - `npm run db:migrate`: Executes pending migrations and seeds data cleanly.
+    - `npm run db:revert`: Rolls back the last migration.
+    - `npm run migration:show`: Displays migration status tracking.
+  - Verified migration execution against Supabase PostgreSQL (`npm run db:migrate` exited 0, `migration:show` confirmed `[X]` on both migrations).
+  - Closed-loop verification passed (`npm run build` exits 0 with 0 errors).
+
+### [2026-11-12] — Step 6 Implemented: Dedicated Entity Seed Scripts & `config.employment_types` Created
+- **Module:** Seeding Infrastructure & Config Master (`src/scripts/seeds/`, `config.employment_types`)
+- **Action Type:** `[DATABASE]`, `[TYPEORM]`, `[SEEDING]`, `[ENTITY]`
+- **Description:**
+  - Implemented `EmploymentType` entity in `src/entities/config/employment-type.entity.ts` (`config.employment_types`) extending `BaseEntity` with auto-increment integer `number` primary key.
+  - Registered `EmploymentType` in `AppDataSource`.
+  - Created modular entity-specific seeding scripts under `src/scripts/seeds/`:
+    - `seed-user-types.ts`: Seeds `config.user_types` (`SuperAdmin (SA)`, `ClientAdmin (CA)`, `Employee (EM)`, `DeliveryDriver (DD)`, `Customer (CU)`).
+    - `seed-roles.ts`: Seeds `security.roles` (`SuperAdmin (SA)`, `ClientAdmin (CA)`, `Employee (EM)`, `DeliveryDriver (DD)`, `Customer (CU)`).
+    - `seed-permissions.ts`: Seeds `security.permissions` (`dashboard:read`) and maps to `ClientAdmin` & `Employee` in `security.role_permissions`.
+    - `seed-employment-types.ts`: Seeds `config.employment_types` (`Permanent`, `Contractual`, `CommissionBased`, `DailyWages`, `Temporary`, `Internee`, `ShortTerm`).
+    - `seed-all.ts`: Master orchestrator running all seeders sequentially on a single connection.
+  - Added npm scripts to `package.json`: `seed:user-types`, `seed:roles`, `seed:permissions`, `seed:employment-types`, `seed:all`.
+  - Executed `npm run seed:all` against Supabase PostgreSQL: all tables created, verified, and populated with formatted console tables.
+  - Updated `tables with schema.md`. Closed-loop type checking verified (`npm run build` exits 0 with 0 errors).
+
+### [2026-11-12] — Step 5 Implemented: `BaseEntity` Created & All Entities Refactored
+- **Module:** Architecture & Entities Core (`src/entities/base.entity.ts`)
+- **Action Type:** `[ARCHITECTURE]`, `[CLEAN_CODE]`, `[DATABASE_MIGRATION]`
+- **Description:**
+  - Implemented centralized `BaseEntity` (`src/entities/base.entity.ts`) containing:
+    - `id`: Auto-increment integer `number` (`SERIAL` primary key)
+    - `isActive`: Boolean flag (`is_active`, default: `true`)
+    - `createdOn`: Timestamp (`created_on`, `@CreateDateColumn`)
+    - `createdBy`: Nullable integer (`created_by`)
+    - `modifiedOn`: Timestamp (`modified_on`, `@UpdateDateColumn`)
+    - `modifiedBy`: Nullable integer (`modified_by`)
+    - `deletedOn`: Timestamp (`deleted_on`, `@DeleteDateColumn` for native TypeORM soft deletes)
+    - `deletedBy`: Nullable integer (`deleted_by`)
+  - Refactored all existing entities to extend `BaseEntity`:
+    - `src/entities/security/user.entity.ts` (`User extends BaseEntity`)
+    - `src/entities/settings/erp-module.entity.ts` (`ErpModule extends BaseEntity`)
+    - `src/entities/config/user-type.entity.ts` (`UserTypeEntity extends BaseEntity`)
+    - `src/entities/security/role.entity.ts` (`Role extends BaseEntity`)
+    - `src/entities/security/permission.entity.ts` (`Permission extends BaseEntity`)
+    - `src/entities/security/role-permission.entity.ts` (`RolePermission extends BaseEntity`)
+  - Synchronized updated columns across Supabase PostgreSQL via TypeORM schema sync.
+  - Closed-loop verification passed (`npm run build` exits 0 with 0 errors).
+
+### [2026-11-12] — Step 4 Implemented: `config.user_types`, `security.roles`, `security.permissions`, `security.role_permissions` Tables Created & Seeded
+- **Module:** Security & Config RBAC Tables (`config.user_types`, `security.roles`, `security.permissions`, `security.role_permissions`)
+- **Action Type:** `[DATABASE]`, `[TYPEORM]`, `[SEEDING]`, `[RBAC]`
+- **Description:**
+  - Implemented 4 core RBAC & classification entities with auto-increment integer `number` primary keys:
+    - `src/entities/config/user-type.entity.ts`: `UserTypeEntity` (`config.user_types`)
+    - `src/entities/security/role.entity.ts`: `Role` (`security.roles`)
+    - `src/entities/security/permission.entity.ts`: `Permission` (`security.permissions`)
+    - `src/entities/security/role-permission.entity.ts`: `RolePermission` (`security.role_permissions`) with cascading FKs and unique constraint on `(role_id, permission_id)`.
+  - Registered all entities in `src/config/data-source.ts`.
+  - Resolved ESM decorator circular metadata issue using TypeORM `type Relation<T>` pattern.
+  - Aligned constants in `src/constants/user-type.enum.ts` (`UserType`, `UserTypeId`, `UserTypeCode`, `USER_TYPE_LABELS`), `role.enum.ts` (`RoleCode`, `RoleName`, `ROLE_LABELS`), and `user.entity.ts`.
+  - Successfully executed `dist/scripts/sync-security-tables.js` against Supabase PostgreSQL:
+    - Created PostgreSQL schemas `config` and `security`.
+    - Synchronized all 4 tables with unique constraints and indexes.
+    - Seeded `config.user_types`: `SuperAdmin (SA)`, `ClientAdmin (CA)`, `Employee (EM)`, `DeliveryDriver (DD)`, `Customer (CU)`.
+    - Seeded `security.roles`: `SuperAdmin (SA)`, `ClientAdmin (CA)`, `Employee (EM)`, `DeliveryDriver (DD)`, `Customer (CU)`.
+    - Seeded `security.permissions`: `dashboard:read`.
+    - Seeded `security.role_permissions`: Mapped `dashboard:read` to `ClientAdmin` and `Employee`.
+  - Updated `tables with schema.md`. Verified closed-loop type checking (`npm run build` exits 0 with 0 errors).
+
+### [2026-11-12] — Step 3 Implemented: System Enums Created in `src/constants`
+- **Module:** Constants & System Enums (`src/constants`)
+- **Action Type:** `[CONSTANTS]`, `[SYSTEM_TYPES]`, `[RBAC]`
+- **Description:**
+  - Implemented centralized enums under `src/constants/` with labels and descriptions:
+    - `src/constants/user-type.enum.ts`: `UserType` (`SUPER_ADMIN=1`, `BUSINESS_ADMIN=2`, `EMPLOYEE=3`, `DELIVERY_DRIVER=4`, `CUSTOMER=5`) + `USER_TYPE_LABELS`.
+    - `src/constants/role.enum.ts`: `RoleCode` (`SUPER_ADMIN`, `BUSINESS_OWNER`, `MANAGER`, `DISPATCHER`, `ACCOUNTANT`, `DELIVERY_DRIVER`, `CUSTOMER`) + `ROLE_LABELS`.
+    - `src/constants/permission.enum.ts`: `PermissionCode` (`DASHBOARD_READ = "dashboard:read"`) + `PERMISSION_DESCRIPTIONS` (strictly kept to `dashboard:read` as instructed for incremental build).
+    - `src/constants/employment-type.enum.ts`: `EmploymentTypeCode` (`PERMANENT`, `CONTRACTUAL`, `COMMISSION_BASED`, `DAILY_WAGES`, `TEMPORARY`, `INTERNEE`) + `EMPLOYMENT_TYPE_LABELS`.
+    - `src/constants/index.ts`: Barrel export.
+  - Refactored `user.entity.ts` to consume `UserType` from `src/constants/user-type.enum.js`.
+  - TypeScript build verified (`npm run build` exits 0 with 0 errors).
+
+### [2026-11-12] — Step 2 Implemented: `settings.erp_modules` Table Created & Seeded
+- **Module:** Settings & ERP Modules (`settings.erp_modules`)
+- **Action Type:** `[DATABASE]`, `[TYPEORM]`, `[SEEDING]`
+- **Description:**
+  - Implemented `ErpModule` entity in `src/entities/settings/erp-module.entity.ts` using auto-increment `number` (`INT / SERIAL`) primary key.
+  - Updated `UserType` in `user.entity.ts` to support the 5 explicit actor types (`SUPER_ADMIN=1, BUSINESS_ADMIN=2, EMPLOYEE=3, DELIVERY_DRIVER=4, CUSTOMER=5`).
+  - Registered `ErpModule` in `AppDataSource` (`src/config/data-source.ts`).
+  - Executed migration & seeding script `src/scripts/sync-erp-modules.ts` against Supabase PostgreSQL:
+    - Schema `settings` created.
+    - Table `settings.erp_modules` synchronized with unique index `uq_settings_erp_modules_code`.
+    - Seeded 8 core ERP modules (`CORE_POS`, `BOTTLE_LEDGER`, `SUBSCRIPTION_ENGINE`, `FLEET_GATE_PASS`, `VOUCHER_BILLING`, `PLANT_INVENTORY`, `HR_PAYROLL`, `NOTIFICATIONS`).
+  - Verified closed-loop type checking (`npm run build` exit code 0).
+  - Synchronized `tables with schema.md`.
+
 ### [2026-11-12] — Codebase Structure Aligned to `iss-server` Layered Clean Architecture
 - **Module:** Architecture & Workspace Layout
 - **Action Type:** `[REFACTOR]`, `[ARCHITECTURE]`, `[CLEAN_CODE]`

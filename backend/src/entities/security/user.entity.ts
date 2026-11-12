@@ -1,18 +1,8 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  UpdateDateColumn,
-  Index,
-} from "typeorm";
+import { Entity, Column, Index } from "typeorm";
+import { BaseEntity } from "../base.entity.js";
+import { UserType, UserTypeId } from "../../constants/user-type.enum.js";
 
-export enum UserType {
-  SUPER_ADMIN = 1,
-  BUSINESS_ADMIN = 2,
-  EMPLOYEE_DRIVER = 3,
-  CUSTOMER = 4,
-}
+export { UserType, UserTypeId };
 
 @Entity({ schema: "security", name: "users" })
 @Index("uq_security_users_user_name", ["userName"], { unique: true })
@@ -21,10 +11,7 @@ export enum UserType {
   where: `"email" IS NOT NULL AND "email" <> ''`,
 })
 @Index("ix_security_users_cell_phone", ["cellPhone"])
-export class User {
-  @PrimaryGeneratedColumn({ type: "int" })
-  id!: number;
-
+export class User extends BaseEntity {
   @Column({ type: "varchar", length: 50, name: "user_name" })
   userName!: string;
 
@@ -40,9 +27,9 @@ export class User {
   @Column({
     type: "smallint",
     name: "user_type",
-    default: UserType.BUSINESS_ADMIN,
+    default: UserTypeId.CLIENT_ADMIN,
   })
-  userType!: UserType;
+  userType!: number;
 
   @Column({ type: "varchar", length: 150, name: "first_name" })
   firstName!: string;
@@ -72,28 +59,4 @@ export class User {
 
   @Column({ type: "smallint", default: 0, name: "failed_login_attempts" })
   failedLoginAttempts!: number;
-
-  @Column({ type: "boolean", default: true, name: "active" })
-  active!: boolean;
-
-  @CreateDateColumn({ type: "timestamptz", precision: 3, name: "created_on" })
-  createdOn!: Date;
-
-  @Column({ type: "int", nullable: true, name: "created_by" })
-  createdBy?: number | null;
-
-  @UpdateDateColumn({
-    type: "timestamptz",
-    precision: 3,
-    nullable: true,
-    name: "modified_on",
-  })
-  modifiedOn?: Date | null;
-
-  @Column({ type: "int", nullable: true, name: "modified_by" })
-  modifiedBy?: number | null;
-
-  @Column({ type: "boolean", default: false, name: "is_deleted" })
-  isDeleted!: boolean;
 }
-

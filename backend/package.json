@@ -9,12 +9,20 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "typeorm": "typeorm",
-    "migration:run": "typeorm migration:run -d src/config/data-source.ts",
-    "migration:revert": "typeorm migration:revert -d src/config/data-source.ts",
+    "migration:run": "typeorm migration:run -d dist/config/data-source.js",
+    "migration:revert": "typeorm migration:revert -d dist/config/data-source.js",
+    "migration:show": "typeorm migration:show -d dist/config/data-source.js",
+    "db:migrate": "node dist/scripts/migrate.js",
+    "db:revert": "node dist/scripts/revert-migration.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "lint": "eslint src --ext .ts"
+    "lint": "eslint src --ext .ts",
+    "seed:user-types": "node dist/scripts/seeds/seed-user-types.js",
+    "seed:roles": "node dist/scripts/seeds/seed-roles.js",
+    "seed:permissions": "node dist/scripts/seeds/seed-permissions.js",
+    "seed:employment-types": "node dist/scripts/seeds/seed-employment-types.js",
+    "seed:all": "node dist/scripts/seeds/seed-all.js"
   },
   "dependencies": {
     "argon2": "^0.40.1",

@@ -50,12 +50,15 @@ PostgreSQL: aquaflow_db
 ### 🛡️ Non-Negotiable Database Invariants:
 1. **Never Hard Delete Operational Data**: All business tables feature `is_deleted BOOLEAN NOT NULL DEFAULT false` or `active BOOLEAN NOT NULL DEFAULT true`.
 2. **Filtered Partial Unique Indexes**: Unique constraints on soft-deletable tables MUST use PostgreSQL partial indexes (e.g. `CREATE UNIQUE INDEX uq_business_code ON core.businesses (business_code) WHERE is_deleted = false;`).
-3. **Audit Quintet**: Every single table carries:
+3. **Master Base Entity & Enterprise Audit Septet**: All tables inherit from `BaseEntity` (`src/entities/base.entity.ts`):
+   - `id INT SERIAL PRIMARY KEY` (Auto-increment `number`)
+   - `is_active BOOLEAN NOT NULL DEFAULT true` (Operational activation flag)
    - `created_on TIMESTAMPTZ(3) NOT NULL DEFAULT NOW()`
-   - `created_by UUID NULL`
+   - `created_by INT NULL` (User ID who created the record)
    - `modified_on TIMESTAMPTZ(3) NULL`
-   - `modified_by UUID NULL`
-   - `is_deleted BOOLEAN NOT NULL DEFAULT false`
+   - `modified_by INT NULL` (User ID who modified the record)
+   - `deleted_on TIMESTAMPTZ(3) NULL` (TypeORM `@DeleteDateColumn` automatic soft-delete engine)
+   - `deleted_by INT NULL` (User ID who soft-deleted/archived the record)
 4. **Monetary Precision**: Money, deposits, and prices are strictly `DECIMAL(18, 2)` or integer minor units. Never floating point numbers.
 5. **Decoupled Identity vs. HR Master**: `security.users` handles credentials; `hr.employees` handles staff/driver profile, salary, CNIC, and commission.
 
@@ -108,37 +111,37 @@ To prevent overwhelming the system and ensure every single table is thoroughly v
 
 ---
 
-### Table 1.2: `security.roles`
-*Derived from `[Security].[Role]` in `sch`.* RBAC roles (System Global & Tenant Specific).
+### Table 1.2: `security.roles` (IMPLEMENTED & SEEDED ✅)
+*Derived from `[Security].[Role]` in `sch`.* RBAC roles with integer primary key. Seeded with 5 core roles: `SuperAdmin (SA)`, `ClientAdmin (CA)`, `Employee (EM)`, `DeliveryDriver (DD)`, `Customer (CU)`.
 
 | Column | Type | Nullable | Default | Constraints & Description |
 | :--- | :--- | :---: | :---: | :--- |
-| `id` | `UUID` | NO | `gen_random_uuid()` | Primary Key |
-| `business_id` | `UUID` | YES | NULL | FK -> `core.businesses(id)`. NULL for global roles |
-| `name` | `VARCHAR(100)` | NO | — | Role display name (e.g., `Plant Dispatcher`) |
-| `code` | `VARCHAR(50)` | NO | — | `SUPER_ADMIN`, `BUSINESS_OWNER`, `DISPATCHER`, `DRIVER`, etc. |
+| `id` | `INT` (`SERIAL`) | NO | `nextval()` | **Primary Key (auto-increment `number`)** |
+| `name` | `VARCHAR(100)` | NO | — | Unique Role Name (e.g., `SuperAdmin`, `ClientAdmin`) |
+| `code` | `VARCHAR(50)` | NO | — | Unique Role Code (`SA`, `CA`, `EM`, `DD`, `CU`) |
 | `description` | `VARCHAR(250)` | YES | NULL | Summary of role capabilities |
 | `active` | `BOOLEAN` | NO | `true` | Role active flag |
 | `created_on` | `TIMESTAMPTZ(3)` | NO | `NOW()` | Audit timestamp |
-| `created_by` | `UUID` | YES | NULL | Audit user |
+| `created_by` | `INT` | YES | NULL | Audit user |
 | `modified_on` | `TIMESTAMPTZ(3)` | YES | NULL | Audit timestamp |
-| `modified_by` | `UUID` | YES | NULL | Audit user |
+| `modified_by` | `INT` | YES | NULL | Audit user |
 
 ---
 
-### Table 1.3: `security.permissions`
-*Derived from `[Security].[Permission]` in `sch`.* Atomic system actions.
+### Table 1.3: `security.permissions` (IMPLEMENTED & SEEDED ✅)
+*Derived from `[Security].[Permission]` in `sch`.* Atomic system actions with integer primary key. Seeded with `dashboard:read`.
 
 | Column | Type | Nullable | Default | Constraints & Description |
 | :--- | :--- | :---: | :---: | :--- |
-| `id` | `UUID` | NO | `gen_random_uuid()` | Primary Key |
-| `module_id` | `INT` | NO | — | FK -> `settings.erp_modules(id)` |
-| `name` | `VARCHAR(100)` | NO | — | Unique key (e.g. `bottle_ledger.override_return`) |
+| `id` | `INT` (`SERIAL`) | NO | `nextval()` | **Primary Key (auto-increment `number`)** |
+| `name` | `VARCHAR(100)` | NO | — | Unique key (e.g. `dashboard:read`) |
 | `description` | `VARCHAR(250)` | YES | NULL | Description of capability |
 | `is_super_admin_only` | `BOOLEAN` | NO | `false` | Restricts permission to platform owners |
 | `active` | `BOOLEAN` | NO | `true` | Permission active flag |
 | `created_on` | `TIMESTAMPTZ(3)` | NO | `NOW()` | Audit timestamp |
-| `created_by` | `UUID` | YES | NULL | Audit user |
+| `created_by` | `INT` | YES | NULL | Audit user |
+| `modified_on` | `TIMESTAMPTZ(3)` | YES | NULL | Audit timestamp |
+| `modified_by` | `INT` | YES | NULL | Audit user |
 
 ---
 
@@ -147,28 +150,31 @@ To prevent overwhelming the system and ensure every single table is thoroughly v
 
 | Column | Type | Nullable | Default | Constraints & Description |
 | :--- | :--- | :---: | :---: | :--- |
-| `id` | `UUID` | NO | `gen_random_uuid()` | Primary Key |
-| `user_id` | `UUID` | NO | — | FK -> `security.users(id)` ON DELETE CASCADE |
-| `role_id` | `UUID` | NO | — | FK -> `security.roles(id)` ON DELETE CASCADE |
-| `business_id` | `UUID` | YES | NULL | FK -> `core.businesses(id)` ON DELETE CASCADE |
+| `id` | `INT` (`SERIAL`) | NO | `nextval()` | Primary Key |
+| `user_id` | `INT` | NO | — | FK -> `security.users(id)` ON DELETE CASCADE |
+| `role_id` | `INT` | NO | — | FK -> `security.roles(id)` ON DELETE CASCADE |
+| `business_id` | `INT` | YES | NULL | FK -> `core.businesses(id)` ON DELETE CASCADE |
 | `active` | `BOOLEAN` | NO | `true` | Assignment status |
 | `created_on` | `TIMESTAMPTZ(3)` | NO | `NOW()` | Audit timestamp |
-| `created_by` | `UUID` | YES | NULL | Audit user |
+| `created_by` | `INT` | YES | NULL | Audit user |
 
 *Unique Index:* `UNIQUE (user_id, role_id, business_id)`
 
 ---
 
-### Table 1.5: `security.role_permissions`
-*Derived from `[Security].[RolePermission]` in `sch`.* Maps permissions to roles.
+### Table 1.5: `security.role_permissions` (IMPLEMENTED & SEEDED ✅)
+*Derived from `[Security].[RolePermission]` in `sch`.* Maps permissions to roles with integer primary key. Seeded mapping `dashboard:read` to `ClientAdmin` & `Employee`.
 
 | Column | Type | Nullable | Default | Constraints & Description |
 | :--- | :--- | :---: | :---: | :--- |
-| `id` | `UUID` | NO | `gen_random_uuid()` | Primary Key |
-| `role_id` | `UUID` | NO | — | FK -> `security.roles(id)` ON DELETE CASCADE |
-| `permission_id` | `UUID` | NO | — | FK -> `security.permissions(id)` ON DELETE CASCADE |
+| `id` | `INT` (`SERIAL`) | NO | `nextval()` | **Primary Key (auto-increment `number`)** |
+| `role_id` | `INT` | NO | — | FK -> `security.roles(id)` ON DELETE CASCADE |
+| `permission_id` | `INT` | NO | — | FK -> `security.permissions(id)` ON DELETE CASCADE |
+| `active` | `BOOLEAN` | NO | `true` | Active status |
 | `created_on` | `TIMESTAMPTZ(3)` | NO | `NOW()` | Audit timestamp |
-| `created_by` | `UUID` | YES | NULL | Audit user |
+| `created_by` | `INT` | YES | NULL | Audit user |
+| `modified_on` | `TIMESTAMPTZ(3)` | YES | NULL | Audit timestamp |
+| `modified_by` | `INT` | YES | NULL | Audit user |
 
 *Unique Index:* `UNIQUE (role_id, permission_id)`
 
@@ -222,15 +228,31 @@ To prevent overwhelming the system and ensure every single table is thoroughly v
 
 ## Schema 2: `settings` (Dynamic ERP Modules, Menus & Configurations)
 
-### Table 2.1: `settings.erp_modules`
-*Derived from `[Settings].[Module]` in `sch`.* Enterprise modules toggled per tenant subscription.
+### Table 2.1: `settings.erp_modules` (IMPLEMENTED & SEEDED ✅)
+*Derived from `[Settings].[Module]` in `sch`.* Enterprise modules toggled per tenant subscription. Uses auto-increment `INT` / `number` primary key.
 
 | Column | Type | Nullable | Default | Constraints & Description |
 | :--- | :--- | :---: | :---: | :--- |
-| `id` | `INT` | NO | — | Primary Key (`1..N`) |
-| `code` | `VARCHAR(50)` | NO | — | Unique module code (e.g. `BOTTLE_LEDGER`, `FLEET_GATE_PASS`) |
+| `id` | `INT` (`SERIAL`) | NO | `nextval()` | **Primary Key (`number`)** |
+| `code` | `VARCHAR(50)` | NO | — | Unique module code (`UNIQUE`), e.g. `CORE_POS`, `BOTTLE_LEDGER` |
 | `name` | `VARCHAR(100)` | NO | — | Module display name |
-| `is_active` | `BOOLEAN` | NO | `true` | System-wide availability |
+| `description` | `TEXT` | YES | NULL | Module functionality summary |
+| `display_order` | `INT` | NO | `0` | Order in UI module lists |
+| `is_active` | `BOOLEAN` | NO | `true` | System-wide module availability |
+| `created_on` | `TIMESTAMPTZ(3)` | NO | `NOW()` | Audit creation timestamp |
+| `created_by` | `INT` | YES | NULL | User ID who created record |
+| `modified_on` | `TIMESTAMPTZ(3)` | YES | NULL | Audit modified timestamp |
+| `modified_by` | `INT` | YES | NULL | User ID who modified record |
+
+#### 📦 Seeded Core Modules in Database:
+1. `CORE_POS` — Point of Sale & Orders
+2. `BOTTLE_LEDGER` — Empty Bottle Asset Ledger
+3. `SUBSCRIPTION_ENGINE` — Recurring Delivery Plans
+4. `FLEET_GATE_PASS` — Vehicle Dispatch & Gate Pass
+5. `VOUCHER_BILLING` — Monthly Billing & Arrears
+6. `PLANT_INVENTORY` — Bottling & Stock Operations
+7. `HR_PAYROLL` — Staff & Driver Management
+8. `NOTIFICATIONS` — Alerts & Outbox
 
 ---
 
@@ -316,7 +338,42 @@ To prevent overwhelming the system and ensure every single table is thoroughly v
 
 ---
 
-### Tables 3.2 - 3.5: Master Geography & Delivery Zones
+### Table 3.2: `config.user_types` (IMPLEMENTED & SEEDED ✅)
+*Derived from `[Config].[UserType]` in `sch`.* System user classification lookup. Seeded with 5 user types: `SuperAdmin (SA)`, `ClientAdmin (CA)`, `Employee (EM)`, `DeliveryDriver (DD)`, `Customer (CU)`.
+
+| Column | Type | Nullable | Default | Constraints & Description |
+| :--- | :--- | :---: | :---: | :--- |
+| `id` | `INT` (`SERIAL`) | NO | `nextval()` | **Primary Key (auto-increment `number`)** |
+| `name` | `VARCHAR(50)` | NO | — | Unique Name (`SuperAdmin`, `ClientAdmin`, `Employee`, `DeliveryDriver`, `Customer`) |
+| `code` | `VARCHAR(10)` | NO | — | Unique Code (`SA`, `CA`, `EM`, `DD`, `CU`) |
+| `active` | `BOOLEAN` | NO | `true` | Status flag |
+| `created_on` | `TIMESTAMPTZ(3)` | NO | `NOW()` | Audit creation timestamp |
+| `created_by` | `INT` | YES | NULL | Audit user |
+| `modified_on` | `TIMESTAMPTZ(3)` | YES | NULL | Audit modification timestamp |
+| `modified_by` | `INT` | YES | NULL | Audit user |
+
+---
+
+### Table 3.3: `config.employment_types` (IMPLEMENTED & SEEDED ✅)
+*Derived from `[Config].[EmployeementType]` in `sch`.* Enterprise employee contract and compensation model. Seeded with 7 employment types: `Permanent`, `Contractual`, `CommissionBased`, `DailyWages`, `Temporary`, `Internee`, `ShortTerm`.
+
+| Column | Type | Nullable | Default | Constraints & Description |
+| :--- | :--- | :---: | :---: | :--- |
+| `id` | `INT` (`SERIAL`) | NO | `nextval()` | **Primary Key (auto-increment `number`)** |
+| `name` | `VARCHAR(50)` | NO | — | Unique Name (`Permanent`, `Commission Based`, `Daily Wages`, etc.) |
+| `code` | `VARCHAR(50)` | NO | — | Unique Code (`Permanent`, `CommissionBased`, `DailyWages`, etc.) |
+| `description` | `VARCHAR(250)` | YES | NULL | Contract / compensation summary |
+| `is_active` | `BOOLEAN` | NO | `true` | Status flag |
+| `created_on` | `TIMESTAMPTZ(3)` | NO | `NOW()` | Audit creation timestamp |
+| `created_by` | `INT` | YES | NULL | Audit user |
+| `modified_on` | `TIMESTAMPTZ(3)` | YES | NULL | Audit modification timestamp |
+| `modified_by` | `INT` | YES | NULL | Audit user |
+| `deleted_on` | `TIMESTAMPTZ(3)` | YES | NULL | Soft-delete timestamp (`@DeleteDateColumn`) |
+| `deleted_by` | `INT` | YES | NULL | Soft-delete user |
+
+---
+
+### Tables 3.4 - 3.7: Master Geography & Delivery Zones
 - **`config.countries`**: `id`, `iso_code` (`VARCHAR(3)`), `name`, `currency_code`, `phone_prefix`, `is_active`.
 - **`config.states`**: `id`, `country_id`, `name`, `state_code`, `is_active`.
 - **`config.cities`**: `id`, `state_id`, `name`, `is_active`.
