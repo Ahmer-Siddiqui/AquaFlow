@@ -80,19 +80,19 @@ To prevent overwhelming the system and ensure every single table is thoroughly v
 
 ## Schema 1: `security` (Identity, Authentication, RBAC & Scopes)
 
-### Table 1.1: `security.users`
-*Derived from `[Security].[Users]` in `sch`.* Stores global authentication credentials, lockouts, and personal profile.
+### Table 1.1: `security.users` (IMPLEMENTED ✅)
+*Derived from `[Security].[Users]` in `sch`.* Stores global authentication credentials, lockouts, and personal profile. Uses auto-increment `INT` / `number` primary key.
 
 | Column | Type | Nullable | Default | Constraints & Description |
 | :--- | :--- | :---: | :---: | :--- |
-| `id` | `UUID` | NO | `gen_random_uuid()` | Primary Key |
+| `id` | `INT` (`SERIAL`) | NO | `nextval()` | **Primary Key (auto-increment `number`)** |
 | `user_name` | `VARCHAR(50)` | NO | — | Unique handle across platform |
 | `email` | `VARCHAR(150)` | NO | — | Filtered Unique Index `WHERE email <> ''` |
-| `cell_phone` | `VARCHAR(20)` | YES | NULL | Phone number for OTP login |
-| `password_hash` | `TEXT` | NO | — | Argon2id hash |
+| `cell_phone` | `VARCHAR(20)` | YES | NULL | Phone number for OTP login (Indexed) |
+| `password_hash` | `TEXT` | NO | — | Argon2id hash (`select: false`) |
 | `user_type` | `SMALLINT` | NO | `2` | `1=SuperAdmin, 2=BusinessAdmin, 3=Employee/Driver, 4=Customer` |
 | `first_name` | `VARCHAR(150)` | NO | — | First name |
-| `middle_name` | `VARCHAR(150)` | YES | `''` | Middle name |
+| `middle_name` | `VARCHAR(150)` | NO | `''` | Middle name |
 | `last_name` | `VARCHAR(150)` | NO | — | Last name |
 | `image_path` | `TEXT` | YES | NULL | Avatar/profile picture URL |
 | `is_email_verified` | `BOOLEAN` | NO | `false` | Email verification flag |
@@ -101,9 +101,10 @@ To prevent overwhelming the system and ensure every single table is thoroughly v
 | `failed_login_attempts` | `SMALLINT` | NO | `0` | Consecutive failed password counter |
 | `active` | `BOOLEAN` | NO | `true` | Account active state |
 | `created_on` | `TIMESTAMPTZ(3)` | NO | `NOW()` | Audit creation timestamp |
-| `created_by` | `UUID` | YES | NULL | User who created record |
+| `created_by` | `INT` | YES | NULL | User ID who created record |
 | `modified_on` | `TIMESTAMPTZ(3)` | YES | NULL | Audit modified timestamp |
-| `modified_by` | `UUID` | YES | NULL | User who modified record |
+| `modified_by` | `INT` | YES | NULL | User ID who modified record |
+| `is_deleted` | `BOOLEAN` | NO | `false` | Soft-delete flag |
 
 ---
 

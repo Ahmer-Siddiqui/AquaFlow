@@ -6,6 +6,36 @@ This document tracks all completed features, architectural implementations, data
 
 ## 📜 Log Entries
 
+### [2026-11-12] — Codebase Structure Aligned to `iss-server` Layered Clean Architecture
+- **Module:** Architecture & Workspace Layout
+- **Action Type:** `[REFACTOR]`, `[ARCHITECTURE]`, `[CLEAN_CODE]`
+- **Description:**
+  - Transitioned from `src/modules` to `iss-server` style Layered Clean Architecture:
+    - `src/entities/`: Centralized domain entity schemas (`security`, `settings`, `config`, `core`, `hr`, `crm`, `catalog`, `inventory`, `logistics`, `billing`, `notify`, `audit`, `log`).
+    - `src/repositories/`: Data access query repositories.
+    - `src/services/`: Pure business logic services.
+    - `src/controllers/`: Express HTTP request/response handlers.
+    - `src/routes/`: Express endpoint route definitions.
+    - `src/validators/`: Zod request validation schemas.
+    - `src/core/`: Interfaces & central DI container.
+  - Relocated `user.entity.ts` to `src/entities/security/user.entity.ts`.
+  - Updated `AppDataSource` entity imports.
+  - Closed-loop verification passed (`npm run build` completed with 0 errors).
+
+### [2026-11-12] — Step 1 Implemented: `security.users` Table Created & Synchronized
+- **Module:** Security & Identity (`security.users`)
+- **Action Type:** `[DATABASE]`, `[TYPEORM]`, `[ENTITY]`
+- **Description:**
+  - Implemented `User` entity in `src/modules/security/entities/user.entity.ts` using auto-increment `number` (`INT / SERIAL`) primary key as requested instead of UUID.
+  - Registered `User` in `AppDataSource` (`src/config/data-source.ts`).
+  - Successfully verified database schema creation (`CREATE SCHEMA IF NOT EXISTS security;`) and live synchronization with Supabase PostgreSQL.
+  - Created indexes:
+    - `uq_security_users_user_name`: Unique index on `user_name`
+    - `uq_security_users_email`: Filtered unique index `WHERE email IS NOT NULL AND email <> ''`
+    - `ix_security_users_cell_phone`: B-Tree index on `cell_phone` for mobile login
+  - TypeScript build passes cleanly (`npm run build` exit code 0).
+  - Synchronized `tables with schema.md`.
+
 ### [2026-11-12] — Master Database Architecture: `tables with schema.md` Created
 - **Module:** Master Database Documentation & Step-by-Step Implementation Roadmap
 - **Action Type:** `[DATABASE_BLUEPRINT]`, `[DOCUMENTATION]`, `[GOVERNANCE]`
