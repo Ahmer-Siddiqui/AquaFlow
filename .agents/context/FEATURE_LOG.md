@@ -6,6 +6,30 @@ This document tracks all completed features, architectural implementations, data
 
 ## 📜 Log Entries
 
+### [2026-11-12] — TypeORM Supabase Connection, Notification & Storage Toolkits, Express Server Setup
+- **Module:** Core Infrastructure, TypeORM Database, Toolkits & Server Engine
+- **Action Type:** `[DATABASE]`, `[TOOLKIT]`, `[INFRASTRUCTURE]`, `[MIDDLEWARE]`
+- **Description:**
+  - Connected TypeORM `AppDataSource` directly to Supabase PostgreSQL pooler with SSL encryption.
+  - Removed `@prisma/client` and `prisma` CLI from dependencies, switching to pure TypeORM architecture.
+  - Implemented Notification Toolkits under `src/toolkit/notifications/`:
+    - `INotificationProvider` interface (`SMS`, `EMAIL`, `IN_APP`).
+    - `SmsToolkit` for SMS OTP and delivery alerts.
+    - `EmailToolkit` for PDF invoices and statements.
+    - `InAppNotificationToolkit` for real-time web/mobile bell alerts.
+  - Implemented Storage Toolkits under `src/toolkit/storage/`:
+    - `IStorageProvider` interface (`upload`, `delete`, `getUrl`).
+    - `LocalStorageToolkit` for zero-cost offline development and testing.
+    - `SupabaseStorageToolkit` for direct Supabase cloud storage buckets.
+    - `CloudinaryStorageToolkit` for optimized bottle images and avatars.
+  - Implemented secure Multer `upload.middleware.ts` with `memoryStorage()`, 5MB image limit, 10MB document limit, and strict mimetype whitelisting.
+  - Configured Type-safe Zod environment validation (`src/config/env.ts`).
+  - Implemented standard response envelope `ApiResponse.ts` (`{ success, message, data, meta }`).
+  - Implemented central `errorHandler.ts` catching `AppError`, `ZodError`, Multer errors, and PostgreSQL unique/foreign key violations.
+  - Configured `src/app.ts` with Helmet, CORS, Morgan, parsers, static `/uploads`, `/api/v1/health`, and 404 handler.
+  - Configured `src/server.ts` with database lifecycle management and graceful shutdown (`SIGINT`, `SIGTERM`).
+  - Successfully verified live HTTP health check and 404 error handling. Zero TypeScript compilation errors.
+
 ### [2026-11-11] — Baseline Architecture, Master Context & Dual Workspace Initialization
 - **Module:** Core Architecture, Agent Brain & Multi-Tenant Scaffolding
 - **Action Type:** `[ARCHITECTURE]`, `[GOVERNANCE]`, `[INITIALIZATION]`

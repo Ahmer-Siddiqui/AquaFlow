@@ -1,0 +1,48 @@
+import { z } from "zod";
+import dotenv from "dotenv";
+import path from "path";
+
+// Load environment variables from .env
+dotenv.config({ path: path.resolve(process.cwd(), ".env") });
+
+const envSchema = z.object({
+  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  PORT: z.string().default("5000").transform((val) => parseInt(val, 10)),
+  DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
+
+  // Redis (Optional in local dev without queue)
+  REDIS_HOST: z.string().default("localhost"),
+  REDIS_PORT: z.string().default("6379").transform((val) => parseInt(val, 10)),
+  REDIS_PASSWORD: z.string().optional(),
+
+  // JWT
+  JWT_ACCESS_SECRET: z.string().min(16, "JWT_ACCESS_SECRET must be at least 16 characters"),
+  JWT_ACCESS_EXPIRES_IN: z.string().default("15m"),
+  JWT_REFRESH_SECRET: z.string().min(16, "JWT_REFRESH_SECRET must be at least 16 characters"),
+  JWT_REFRESH_EXPIRES_IN: z.string().default("7d"),
+
+  // CORS
+  CORS_ORIGIN: z.string().default("http://localhost:5173,http://localhost:3000"),
+
+  // Storage (Optional)
+  CLOUDINARY_CLOUD_NAME: z.string().optional(),
+  CLOUDINARY_API_KEY: z.string().optional(),
+  CLOUDINARY_API_SECRET: z.string().optional(),
+  SUPABASE_URL: z.string().optional(),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+});
+
+const parseEnv = () => {
+  const parsed = envSchema.safeParse(process.env);
+
+  if (!parsed.success) {
+    console.error("❌ Invalid environment variables:", JSON.stringify(parsed.error.format(), null, 2));
+    throw new Error("Invalid environment configuration. Fix the issues above in .env before starting.");
+  }
+
+  return parsed.data;
+};
+
+export const env = parseEnv();
+export type Env = z.infer<typeof envSchema>;
+
