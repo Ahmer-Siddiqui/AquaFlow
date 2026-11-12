@@ -23,7 +23,9 @@
     "seed:roles": "node dist/scripts/seeds/seed-roles.js",
     "seed:permissions": "node dist/scripts/seeds/seed-permissions.js",
     "seed:employment-types": "node dist/scripts/seeds/seed-employment-types.js",
-    "seed:all": "node dist/scripts/seeds/seed-all.js"
+    "seed:all": "node dist/scripts/seeds/seed-all.js",
+    "graph:update": "python -m graphify update \"..\"",
+    "graph:watch": "python -m graphify watch \"..\""
   },
   "dependencies": {
     "argon2": "^0.40.1",
