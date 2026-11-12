@@ -6,6 +6,30 @@ This document tracks all completed features, architectural implementations, data
 
 ## 📜 Log Entries
 
+### [2026-11-12] — Master Database Architecture: `tables with schema.md` Created
+- **Module:** Master Database Documentation & Step-by-Step Implementation Roadmap
+- **Action Type:** `[DATABASE_BLUEPRINT]`, `[DOCUMENTATION]`, `[GOVERNANCE]`
+- **Description:**
+  - Created root file `tables with schema.md` capturing the complete enterprise PostgreSQL multi-schema architecture derived from `sch/Security` and `sch/API`.
+  - Detailed all 11 PostgreSQL schemas: `security`, `settings`, `config`, `core`, `hr`, `crm`, `catalog`, `inventory`, `logistics`, `billing`, `notify`, `audit`, `log`.
+  - Defined all tables, columns, data types, constraints (PK, FK, unique filtered indexes), and audit quintets.
+  - Established a strict 8-phase step-by-step implementation roadmap (starting with Phase 1: `security` & `settings` schemas).
+
+### [2026-11-12] — Enterprise ERP Database Engineering Blueprint (`sch/Security` & `sch/API` Deep Analysis)
+- **Module:** Enterprise Database Architecture & ERP Domain Modeling
+- **Action Type:** `[DATABASE_ARCHITECTURE]`, `[ERP_DESIGN]`, `[GOVERNANCE]`
+- **Description:**
+  - Deeply analyzed all schemas, tables, constraints, filtered indexes, triggers, and stored procedures across `d:\Backend Portfolio\sch\Security\Database` and `d:\Backend Portfolio\sch\API\Database`.
+  - Documented the complete ERP Database Blueprint in `.agents/context/ERP_DATABASE_BLUEPRINT.md` mapping `sch` patterns to **AquaFlow ERP** over TypeORM + PostgreSQL:
+    - **Bounded-Context PostgreSQL Schemas:** `security`, `settings`, `config`, `core`, `hr`, `crm`, `catalog`, `inventory`, `logistics`, `billing`, `notify`, `audit`, `log`.
+    - **Security & Dynamic Menu Engine:** `Users`, `Roles`, `Permissions`, `UserRoles`, `RolePermission`, `ErpModules`, `Menus`, `MenuPermission`, `Configurations`, `UserSessions`, `PasswordResetRequest`, `UserSubOrdinates`, and granular scope tables (`UserAssignedBranches`, `UserAssignedShifts`, `UserAssignedZones`).
+    - **Multi-Tier Tenant & Shift Hierarchy:** `Businesses` (with `businessCode`, `dueDayOfTheMonth`, `voucherValidityDays`, `themePrimaryColor` check constraints) -> `Branches` (with `isHeadOffice` filtered unique index, `timeZoneId`, `orderPrefix`, `voucherPrefix`, bank details) -> `OperatingShifts` (`startTime`, `endTime`, `shiftInchargeId`).
+    - **HR & Payroll Master:** Decoupled `hr.employees` (`employeeCode`, `loginUserId`, `cnic`, `drivingLicenseNo`, `designationId`, `employmentTypeId`, `grossPay`, `perBottleCommission`) + `EmployeeAttendances` + `LeaveRequests`.
+    - **Voucher-Based Billing & Arrears Engine:** Modeled after `FeeVoucher*` (`ChargeTypes`, `CustomerRateCards`, `DiscountPackages`, `DiscountPackageDetails`, `VoucherProcessingRuns`, `BillingVouchers` with `previousArrears`, `lateFee`, `depositLiabilityAmount`, `BillingVoucherDetails`, `BillingVoucherPayments`).
+    - **Bitmask Recurrence & Exception Occurrences:** Modeled after `EventRecurrenceRule` (`daysOfWeekMask` bitmask `1..64`) and `EventOccurrence` (`isException`, `addressIdOverride`, `quantityOverride`) + `VehicleGatePasses`.
+    - **Multi-Channel Notification & Idempotent Scheduler:** Modeled after `[Notify].*` (`NotificationTenantSettings` with `quietHoursStart/End`, `NotificationSettings`, `NotificationTemplates`, `NotificationDeliveries`, `ScheduleRules`, `ScheduleRuns` with `windowKey`).
+    - **3-Layer Audit & Mobile Telemetry:** `BottleLedgerAudits` (`oldValue` vs `newValue`), `PlantDailySnapshots`, `CustomerHistories` (via TypeORM `EntitySubscriberInterface`), `MobileLogBatches`, `MobileLogEntries`, and `ErrorLogs`.
+
 ### [2026-11-12] — TypeORM Supabase Connection, Notification & Storage Toolkits, Express Server Setup
 - **Module:** Core Infrastructure, TypeORM Database, Toolkits & Server Engine
 - **Action Type:** `[DATABASE]`, `[TOOLKIT]`, `[INFRASTRUCTURE]`, `[MIDDLEWARE]`
