@@ -6,6 +6,36 @@ This document tracks all completed features, architectural implementations, data
 
 ## 📜 Log Entries
 
+### [2026-11-12] — Step 9 Implemented: `security.users.user_type` Default Changed to `NULL`
+- **Module:** Security & Identity (`src/entities/security/user.entity.ts`)
+- **Action Type:** `[ENTITY]`, `[SCHEMA_UPDATE]`, `[MIGRATION]`
+- **Description:**
+  - Updated `userType` column in `src/entities/security/user.entity.ts`:
+    - Made nullable: `nullable: true`, type `userType?: number | null`
+    - Changed default value to `null` (`default: null`).
+  - Updated migration `src/migrations/1731420000000-CreateInitialSecurityAndConfigTables.ts` (`"user_type" SMALLINT DEFAULT NULL`).
+  - Updated `tables with schema.md` specification.
+  - Re-synchronized database schema via `npm run db:fresh`: confirmed `user_type` column is `SMALLINT`, `is_nullable = 'YES'`, `column_default = null`.
+  - TypeScript compilation verified (`npm run build` exits 0 with 0 errors).
+
+### [2026-11-12] — Step 8 Implemented: Full Rollback Verification & Fresh Migration/Seeding Pipeline
+- **Module:** Database Migrations & Revert Pipeline (`src/scripts/revert-all.ts`, `npm run db:fresh`)
+- **Action Type:** `[DATABASE_MIGRATION]`, `[ROLLBACK_TEST]`, `[REPRODUCIBILITY]`
+- **Description:**
+  - Implemented `src/scripts/revert-all.ts` to execute sequential rollback (`down()`) of all active migrations.
+  - Successfully reverted both migrations on Supabase:
+    - Reverted `SeedInitialSecurityAndConfigData1731420001000` (cleaned seeded data).
+    - Reverted `CreateInitialSecurityAndConfigTables1731420000000` (dropped all test tables in reverse foreign key order).
+    - Verified `migration:show` confirmed `[ ]` for both migrations.
+  - Re-executed fresh migration via `npm run db:migrate`:
+    - Recreated schemas `config`, `settings`, `security`.
+    - Recreated all 7 tables with `BaseEntity` audit columns, indexes, and constraints.
+    - Re-seeded initial master data into `user_types`, `roles`, `permissions`, `role_permissions`, `employment_types`, `erp_modules`.
+  - Refactored modular seed scripts (`src/scripts/seeds/`) to decouple data seeding from schema synchronization, eliminating index duplication conflicts.
+  - Executed `npm run seed:all` to verify clean idempotent insertion and display verified ASCII tables.
+  - Added `npm run db:fresh` to `package.json` for one-command reset, migration, and seeding.
+  - Closed-loop verification passed (`npm run build` exits 0 with 0 errors).
+
 ### [2026-11-12] — Step 7 Implemented: TypeORM Migration Scripts & Migration Engine
 - **Module:** Database Migrations (`src/migrations/`, `src/scripts/migrate.ts`)
 - **Action Type:** `[DATABASE_MIGRATION]`, `[TYPEORM]`, `[REPRODUCIBILITY]`

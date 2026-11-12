@@ -14,6 +14,7 @@
     "migration:show": "typeorm migration:show -d dist/config/data-source.js",
     "db:migrate": "node dist/scripts/migrate.js",
     "db:revert": "node dist/scripts/revert-migration.js",
+    "db:fresh": "node dist/scripts/revert-all.js && node dist/scripts/migrate.js && node dist/scripts/seeds/seed-all.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",

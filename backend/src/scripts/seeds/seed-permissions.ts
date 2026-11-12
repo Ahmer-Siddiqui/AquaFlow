@@ -18,9 +18,6 @@ export async function seedPermissions(shouldCloseConnection = true) {
     await AppDataSource.initialize();
   }
 
-  await AppDataSource.query("CREATE SCHEMA IF NOT EXISTS security;");
-  await AppDataSource.synchronize(false);
-
   const permRepo = AppDataSource.getRepository(Permission);
   const roleRepo = AppDataSource.getRepository(Role);
   const rolePermRepo = AppDataSource.getRepository(RolePermission);

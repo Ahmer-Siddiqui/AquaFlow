@@ -15,9 +15,6 @@ export async function seedEmploymentTypes(shouldCloseConnection = true) {
     await AppDataSource.initialize();
   }
 
-  await AppDataSource.query("CREATE SCHEMA IF NOT EXISTS config;");
-  await AppDataSource.synchronize(false);
-
   const empTypeRepo = AppDataSource.getRepository(EmploymentType);
 
   const employmentTypesData = [

@@ -12,9 +12,6 @@ export async function seedUserTypes(shouldCloseConnection = true) {
     await AppDataSource.initialize();
   }
 
-  await AppDataSource.query("CREATE SCHEMA IF NOT EXISTS config;");
-  await AppDataSource.synchronize(false);
-
   const userTypeRepo = AppDataSource.getRepository(UserTypeEntity);
 
   const userTypesData = [

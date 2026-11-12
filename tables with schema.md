@@ -93,7 +93,7 @@ To prevent overwhelming the system and ensure every single table is thoroughly v
 | `email` | `VARCHAR(150)` | NO | — | Filtered Unique Index `WHERE email <> ''` |
 | `cell_phone` | `VARCHAR(20)` | YES | NULL | Phone number for OTP login (Indexed) |
 | `password_hash` | `TEXT` | NO | — | Argon2id hash (`select: false`) |
-| `user_type` | `SMALLINT` | NO | `2` | `1=SuperAdmin, 2=BusinessAdmin, 3=Employee/Driver, 4=Customer` |
+| `user_type` | `SMALLINT` | YES | NULL | `1=SuperAdmin, 2=ClientAdmin, 3=Employee, 4=DeliveryDriver, 5=Customer` (Default: NULL) |
 | `first_name` | `VARCHAR(150)` | NO | — | First name |
 | `middle_name` | `VARCHAR(150)` | NO | `''` | Middle name |
 | `last_name` | `VARCHAR(150)` | NO | — | Last name |

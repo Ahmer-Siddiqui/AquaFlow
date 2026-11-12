@@ -26,10 +26,11 @@ export class User extends BaseEntity {
 
   @Column({
     type: "smallint",
+    nullable: true,
     name: "user_type",
-    default: UserTypeId.CLIENT_ADMIN,
+    default: null,
   })
-  userType!: number;
+  userType?: number | null;
 
   @Column({ type: "varchar", length: 150, name: "first_name" })
   firstName!: string;

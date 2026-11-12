@@ -131,7 +131,7 @@ export class CreateInitialSecurityAndConfigTables1731420000000
         "email" VARCHAR(150) NOT NULL,
         "cell_phone" VARCHAR(20),
         "password_hash" TEXT NOT NULL,
-        "user_type" SMALLINT NOT NULL DEFAULT 2,
+        "user_type" SMALLINT DEFAULT NULL,
         "first_name" VARCHAR(150) NOT NULL,
         "middle_name" VARCHAR(150) NOT NULL DEFAULT '',
         "last_name" VARCHAR(150) NOT NULL,

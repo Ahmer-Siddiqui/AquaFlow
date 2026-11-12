@@ -12,9 +12,6 @@ export async function seedRoles(shouldCloseConnection = true) {
     await AppDataSource.initialize();
   }
 
-  await AppDataSource.query("CREATE SCHEMA IF NOT EXISTS security;");
-  await AppDataSource.synchronize(false);
-
   const roleRepo = AppDataSource.getRepository(Role);
 
   const rolesData = [
